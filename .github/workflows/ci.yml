@@ -23,7 +23,8 @@ jobs:
           
       - name: Lint Python
         uses: chartboost/ruff-action@v1
-
+        with:
+          args: --fix
   test:
     name: Test (Python ${{ matrix.python-version }})
     needs: lint

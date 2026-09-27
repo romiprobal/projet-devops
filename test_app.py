@@ -1,9 +1,9 @@
 #Ce test va nous permettre de voir si tout nos code fonctionnen bien
-
-#on import notre serveur web grace au variable app
-from app import app
 #moteur de test, lire ce fichier et voir si c ok
 import pytest 
+#on import notre serveur web grace au variable app
+from app import app
+
 
 #fonction de preration configurer env pret à l'emploi av test (un fixture doit executer avant le test (preparation du terrain))
 @pytest.fixture
