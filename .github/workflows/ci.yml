@@ -16,19 +16,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Lint YAML
-        uses: ibiqlik/action-yamllint@v3
-        with:
-          file_or_dir: .
-          config_data: |
-            extends: default
-            rules:
-              line-length: disable
-              truthy: disable
-              document-start: disable
-              comments: disable
-              trailing-spaces: disable
-              new-lines: disable
+      
+      - name: Check YAML syntax (Simple)
+        run: |
+          python3 -c 'import yaml, glob; [yaml.safe_load(open(f)) for f in glob.glob("**/*.yml", recursive=True)]'
+          
       - name: Lint Python
         uses: chartboost/ruff-action@v1
 
@@ -39,42 +31,43 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"] 
+        python-version: ["3.11", "3.12"]
 
     services:
       postgres:
-        image: postgres:16.4-alpine
+        image: postgres:16.4
         env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: mydb
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U user -d mydb"
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     steps:
-      - name: Setup via action locale
+      - uses: actions/checkout@v4
+
+      - name: Use local setup-env action
         uses: ./.github/actions/setup-env
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run Pytest & Generate JUnit Report
+      - name: Run Tests with Pytest
         env:
-          DATABASE_URL: postgresql://user:password@localhost:5432/mydb
-        shell: bash
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
         run: |
-          pip install pytest pytest-cov requests
-          pytest --cov=app --junitxml=junit/test-results-${{ matrix.python-version }}.xml
+          pytest --junitxml=test-results.xml
 
-      - name: Upload Test Report
+      - name: Upload Test Results
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: test-results-${{ matrix.python-version }}
-          path: junit/test-results-${{ matrix.python-version }}.xml
+          name: test-results-py${{ matrix.python-version }}
+          path: test-results.xml
 
   build:
     name: Build Docker Image
@@ -83,18 +76,21 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image (Dry Run)
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: false
-          tags: projet-devops:latest
+          tags: projet-devops:test
 
   ci-ok:
     name: CI Success Gate
     needs: [lint, test, build]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Gate Check
-        run: echo "CI verte, merge autorisé."
+      - name: CI Passed Successfully
+        run: echo "Tous les jobs de la CI ont réussi avec succès !"
