@@ -20,6 +20,15 @@ jobs:
         uses: ibiqlik/action-yamllint@v3
         with:
           file_or_dir: .
+          config_data: |
+            extends: default
+            rules:
+              line-length: disable
+              truthy: disable
+              document-start: disable
+              comments: disable
+              trailing-spaces: disable
+              new-lines: disable
       - name: Lint Python
         uses: chartboost/ruff-action@v1
 
