@@ -9,7 +9,7 @@ app = Flask(__name__)
 #dit à Flask que si user tape url/health execute cette fonction
 
 @app.route('/health')
-def heath():
+def health():
     #return en json tout va bien (code 200 de HTTP)
     return jsonify({"status": "healthy", "service": "projet-devops"}), 200
 

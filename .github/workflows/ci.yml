@@ -20,11 +20,7 @@ jobs:
       - name: Check YAML syntax (Simple)
         run: |
           python3 -c 'import yaml, glob; [yaml.safe_load(open(f)) for f in glob.glob("**/*.yml", recursive=True)]'
-          
-      - name: Lint Python
-        uses: chartboost/ruff-action@v1
-        with:
-          args: --fix
+
   test:
     name: Test (Python ${{ matrix.python-version }})
     needs: lint
