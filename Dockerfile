@@ -11,6 +11,11 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 #Image Finale
 FROM python:3.12.7-slim
 
+ARG APP_VERSION=0.0.0-dev
+ARG GIT_SHA=unknown
+ENV APP_VERSION=${APP_VERSION} \
+    GIT_SHA=${GIT_SHA}
+
 WORKDIR /app
 
 RUN useradd --create-home appuser
