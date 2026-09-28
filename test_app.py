@@ -1,23 +1,26 @@
-#Ce test va nous permettre de voir si tout nos code fonctionnen bien
-#moteur de test, lire ce fichier et voir si c ok
-import pytest 
-#on import notre serveur web grace au variable app
+import pytest
+
 from app import app
 
 
-#fonction de preration configurer env pret à l'emploi av test (un fixture doit executer avant le test (preparation du terrain))
 @pytest.fixture
 def client():
-    app.config['TESTING'] = True
+    app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
 
-#test ici c'est qu'on va simuler une requete GET sur url /health
-def test_health_endpoint(client):
-    "Test : /health code 200 status healthy"
-    response = client.get('/health')
 
+def test_health_ok_quand_postgres_repond(client):
+    response = client.get("/health")
     assert response.status_code == 200
-
     data = response.get_json()
     assert data["status"] == "healthy"
+    assert data["database"] == "ok"
+
+
+def test_health_503_quand_postgres_absent(client, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x:y@127.0.0.1:1/nope")
+    response = client.get("/health")
+    assert response.status_code == 503
+    data = response.get_json()
+    assert data["status"] == "degraded"

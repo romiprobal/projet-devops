@@ -3,7 +3,7 @@ FROM python:3.12.7-slim AS builder
 # dossier de travail dans le conteneur
 WORKDIR /app
 
-# installe les dépendances dans un dossier temporaire
+# installe les dépendances 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
@@ -23,10 +23,10 @@ COPY --chown=appuser:appuser . .
 ENV PATH=/home/appuser/.local/bin:$PATH
 USER appuser
 
-# communiquer port 5000
+# ecoute port 5000
 EXPOSE 5000
 
-# interroge notre endpoint /health toutes les 30 secondes
+# interroge /health toutes les 30 secondes
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD python -c "import requests; requests.get('http://localhost:5000/health').raise_for_status()"
 
