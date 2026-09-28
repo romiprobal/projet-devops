@@ -1,5 +1,6 @@
 import os
 import time
+
 import psycopg
 from flask import Flask, Response, g, jsonify, request
 from prometheus_client import (
