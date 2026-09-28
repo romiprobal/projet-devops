@@ -1,12 +1,12 @@
 import os
-from flask import Flask, jsonify
+
 import psycopg
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
 
 def database_ok():
-    """Renvoie True si la base PostgreSQL répond, False sinon."""
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
         return False
@@ -14,7 +14,7 @@ def database_ok():
         with psycopg.connect(dsn, connect_timeout=3) as conn:
             conn.execute("SELECT 1")
         return True
-    except Exception:
+    except psycopg.Error:
         return False
 
 

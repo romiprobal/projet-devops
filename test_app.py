@@ -1,5 +1,6 @@
-from app import app
 import pytest
+
+from app import app
 
 
 @pytest.fixture
@@ -18,7 +19,6 @@ def test_health_ok_quand_postgres_repond(client):
 
 
 def test_health_503_quand_postgres_absent(client, monkeypatch):
-
     monkeypatch.setenv("DATABASE_URL", "postgresql://x:y@127.0.0.1:1/nope")
     response = client.get("/health")
     assert response.status_code == 503
