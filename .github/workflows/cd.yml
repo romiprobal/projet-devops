@@ -2,8 +2,8 @@ name: CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch: 
+    branches: ["main"]
+  workflow_dispatch:
     inputs:
       environment:
         description: 'Target environment'
@@ -19,9 +19,18 @@ permissions:
   packages: write
 
 jobs:
+  # 1) On lance d'abord toute la CI. Si elle échoue, le déploiement ne se fait pas.
+  ci:
+    name: CI (porte d'entrée)
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  # 2) Déploiement, seulement après une CI verte
   deploy:
     name: Deploy & Verify
-    runs-on: self-hosted 
+    needs: ci
+    runs-on: self-hosted
     timeout-minutes: 15
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
@@ -32,7 +41,7 @@ jobs:
 
       - name: Save previous commit SHA
         id: prev-sha
-        run: echo "PREV_SHA=$(git rev-parse HEAD~1)" >> $GITHUB_ENV
+        run: echo "PREV_SHA=$(git rev-parse --short HEAD~1)" >> $GITHUB_ENV
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -61,6 +70,8 @@ jobs:
 
       - name: Deploy via Docker Compose
         run: |
+          # image poussée pour ce commit (tag sha-xxxxxxx, format court)
+          export IMAGE="ghcr.io/${{ github.repository }}:sha-$(git rev-parse --short HEAD)"
           docker compose pull
           docker compose up -d
 
@@ -79,8 +90,9 @@ jobs:
           done
 
           if [ "$SUCCESS" = false ]; then
-            echo "Healthcheck échoué. Lancement du Rollback..."
-            git checkout ${{ env.PREV_SHA }}
-            docker compose up --build -d
+            echo "Healthcheck échoué. Rollback vers ${PREV_SHA}..."
+            export IMAGE="ghcr.io/${{ github.repository }}:sha-${PREV_SHA}"
+            docker compose pull
+            docker compose up -d
             exit 1
           fi

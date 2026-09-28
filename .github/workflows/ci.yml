@@ -2,24 +2,29 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   lint:
-    name: Lint & YAML Check
+    name: Lint & YAML
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Check YAML syntax (Simple)
+
+      - name: Lint YAML (yamllint)
         run: |
-          python3 -c 'import yaml, glob; [yaml.safe_load(open(f)) for f in glob.glob("**/*.yml", recursive=True)]'
+          pip install yamllint
+          yamllint -d "{extends: relaxed, rules: {new-lines: disable, trailing-spaces: disable, line-length: disable, new-line-at-end-of-file: disable}}" .
+
+      - name: Lint Python (ruff)
+        uses: chartboost/ruff-action@v1
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -27,9 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
-
     services:
       postgres:
         image: postgres:16.4
@@ -44,11 +49,10 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use local setup-env action
+      - name: Setup (action locale, avec cache)
         uses: ./.github/actions/setup-env
         with:
           python-version: ${{ matrix.python-version }}
@@ -56,15 +60,30 @@ jobs:
       - name: Run Tests with Pytest
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
-        run: |
-          pytest --junitxml=test-results.xml
+        run: pytest --junitxml=test-results-${{ matrix.python-version }}.xml
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-py${{ matrix.python-version }}
-          path: test-results.xml
+          path: test-results-${{ matrix.python-version }}.xml
+
+  report:
+    name: Rapport de tests
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download des rapports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+
+      - name: Lister les rapports récupérés
+        run: ls -la *.xml
 
   build:
     name: Build Docker Image
@@ -86,8 +105,16 @@ jobs:
 
   ci-ok:
     name: CI Success Gate
-    needs: [lint, test, build]
+    needs: [lint, test, report, build]
+    if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
-      - name: CI Passed Successfully
-        run: echo "Tous les jobs de la CI ont réussi avec succès !"
+      - name: Vérifier que tous les jobs sont verts
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] || \
+             [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "Au moins un job a échoué — merge bloqué"
+            exit 1
+          fi
+          echo "Tous les jobs de la CI sont verts."

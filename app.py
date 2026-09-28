@@ -1,18 +1,29 @@
-#flask nous permet de crée notre application web
-#jsonify : python -> json
+import os
 from flask import Flask, jsonify
+import psycopg
 
-#initialise app Flask
 app = Flask(__name__)
 
 
-#dit à Flask que si user tape url/health execute cette fonction
+def database_ok():
+    """Renvoie True si la base PostgreSQL répond, False sinon."""
+    dsn = os.environ.get("DATABASE_URL")
+    if not dsn:
+        return False
+    try:
+        with psycopg.connect(dsn, connect_timeout=3) as conn:
+            conn.execute("SELECT 1")
+        return True
+    except Exception:
+        return False
 
-@app.route('/health')
+
+@app.route("/health")
 def health():
-    #return en json tout va bien (code 200 de HTTP)
-    return jsonify({"status": "healthy", "service": "projet-devops"}), 200
+    if database_ok():
+        return jsonify(status="healthy", database="ok"), 200
+    return jsonify(status="degraded", database="unreachable"), 503
 
-#pour que les conteneurs docker puisse se parler
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
