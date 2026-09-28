@@ -30,3 +30,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  #Prometheus : collecte les métriques
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./observability/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    depends_on:
+      - web
+
+  #Grafana : visualise les métriques
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - prometheus
