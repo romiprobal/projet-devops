@@ -31,7 +31,7 @@ services:
       timeout: 5s
       retries: 5
 
-  #Prometheus : collecte les métriques
+  #Prometheus
   prometheus:
     image: prom/prometheus:v2.54.1
     ports:
@@ -42,7 +42,7 @@ services:
     depends_on:
       - web
 
-  #Grafana : visualise les métriques
+  #Grafana
   grafana:
     image: grafana/grafana:11.2.0
     ports:

@@ -11,21 +11,18 @@ from prometheus_client import (
     generate_latest,
 )
 
-#Compteur : nombre total de requêtes, par route et par code HTTP
 REQUEST_COUNT = Counter(
     "http_requests_total",
     "Nombre total de requetes HTTP recues",
     ["endpoint", "code"],
 )
 
-#Histogramme : durée des requêtes, par route (permet p95 / p99)
 REQUEST_DURATION = Histogram(
     "http_request_duration_seconds",
     "Duree de traitement d'une requete HTTP en secondes",
     ["endpoint"],
 )
 
-#Jauge : version et SHA déployés (vaut toujours 1, l'info est dans les labels)
 BUILD_INFO = Gauge(
     "app_build_info",
     "Version et SHA du commit deploye",
@@ -52,7 +49,6 @@ def database_ok():
         return False
 
     
-#2 hook mesurent chaque requete
 @app.before_request
 def start_timer():
     g.start_time = time.perf_counter()
@@ -61,7 +57,7 @@ def start_timer():
 @app.after_request
 def record_metrics(response):
     if request.path == "/metrics":
-        return response  # on ne mesure pas le scrape lui-même
+        return response  
     endpoint = request.url_rule.rule if request.url_rule else "unmatched"
     duration = time.perf_counter() - g.start_time
     REQUEST_DURATION.labels(endpoint=endpoint).observe(duration)
