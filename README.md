@@ -36,6 +36,8 @@ Lancer en local
 ```bash
 git clone https://github.com/romiprobal/projet-devops.git
 cd projet-devops
+python3 -m venv .venv
+source .venv/bin/activate
 docker compose up -d --build
 curl http://localhost:5000/health
 ```
