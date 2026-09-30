@@ -16,6 +16,13 @@ Trunk-based favorise l'intégration continue et s'aligne avec DORA, donc perform
 - Change Failure Rate - pourcentage déploiement erreur
 - Time to Restore Service (MTTR) - temps pour réparer le prbl
 
+
+prérequis
+docker
+python
+pip
+git
+
 L'application
 
 Une API Flask avec une base PostgreSQL. 3 routes :
