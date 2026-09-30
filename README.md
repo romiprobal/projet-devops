@@ -20,6 +20,7 @@ Trunk-based favorise l'intégration continue et s'aligne avec DORA, donc perform
 prérequis
 docker
 python
+python-venv
 pip
 git
 
