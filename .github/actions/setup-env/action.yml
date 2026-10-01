@@ -1,26 +1,33 @@
 name: "Setup Environment"
 description: "Action locale : setup Python + cache pip + install"
+# parametre qu'on peut passer depuis le workflow (3.12 par defaut)
 inputs:
   python-version:
     required: true
     default: "3.12"
 
+# action composite = une suite de steps reutilisable dans plusieurs jobs
 runs:
   using: "composite"
   steps:
+    # installe la version de python demandee
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
 
+    # garde les paquets pip entre deux runs pour aller plus vite
     - name: Cache pip
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
+        # la cle change si requirements.txt change, donc nouveau cache
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        # si pas de cache exact on prend le plus recent qui commence pareil
         restore-keys: |
           ${{ runner.os }}-pip-
 
+    # shell obligatoire dans une action composite
     - name: Install dependencies
       shell: bash
       run: |
