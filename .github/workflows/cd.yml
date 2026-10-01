@@ -113,6 +113,6 @@ jobs:
             export IMAGE="ghcr.io/${{ github.repository }}:sha-${PREV_SHA}"
             docker compose pull
             docker compose up -d
-            # job en rouge pour prevenir que le deploiement a rate
+            # job en rouge pour prevenir que le deploiement a rate ok
             exit 1
           fi
