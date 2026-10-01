@@ -1,48 +1,57 @@
 services:
-  #App
+  # app flask
   web:
+    # en prod la cd met IMAGE=ghcr.io/...:sha-xxx, en local ca prend projet-devops:local
     image: ${IMAGE:-projet-devops:local}
+    # en local on construit l'image avec le dockerfile du dossier
     build: .
     ports:
       - "5000:5000"
     environment:
+      # db = nom du service postgres plus bas, pas localhost
       - DATABASE_URL=postgresql://user:password@db:5432/mydb
+    # on attend que postgres soit pret avant de lancer l'app
     depends_on:
       db:
         condition: service_healthy
+    # verifie /health toutes les 30s (remplace celui du dockerfile)
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health').raise_for_status()"]
       interval: 30s
       timeout: 5s
       retries: 3
 
-  #PostgreSQL
+  # base de donnees
   db:
     image: postgres:16.4-alpine
+    # ouvert pour regarder la bdd en local, l'app passe par le reseau interne
     ports:
       - "5432:5432"
+    # cree le user et la base au premier demarrage (doit matcher DATABASE_URL)
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mydb
+    # pg_isready dit si postgres accepte les connexions, utilise par depends_on
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  #Prometheus
+  # prometheus, recupere les metriques de l'app
   prometheus:
     image: prom/prometheus:v2.54.1
     ports:
       - "9090:9090"
+    # on monte nos fichiers de config dans le conteneur
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./observability/alert_rules.yml:/etc/prometheus/alert_rules.yml
     depends_on:
       - web
 
-  #Grafana
+  # grafana pour les dashboards (source de donnees : http://prometheus:9090)
   grafana:
     image: grafana/grafana:11.2.0
     ports:

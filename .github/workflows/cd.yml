@@ -1,8 +1,10 @@
 name: CD Pipeline
 
 on:
+  # deploie a chaque push sur main
   push:
     branches: ["main"]
+  # bouton "run workflow" pour lancer a la main
   workflow_dispatch:
     inputs:
       environment:
@@ -14,33 +16,41 @@ on:
           - production
           - staging
 
+# packages: write pour pouvoir push l'image sur ghcr
 permissions:
   contents: read
   packages: write
 
 jobs:
+  # on relance toute la ci avant de deployer (ci.yml a workflow_call)
   ci:
     name: CI (porte d'entrée)
     uses: ./.github/workflows/ci.yml
+    # la ci a pas besoin d'ecrire, on lui donne que read
     permissions:
       contents: read
 
   deploy:
     name: Deploy & Verify
+    # on deploie seulement si la ci est verte
     needs: ci
+    # tourne sur notre serveur, la ou l'app doit tourner
     runs-on: self-hosted
     timeout-minutes: 15
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     steps:
+      # fetch-depth 2 pour avoir aussi le commit d'avant (rollback)
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
+      # on note le sha du commit precedent, dispo dans les steps suivants
       - name: Save previous commit SHA
         id: prev-sha
         run: echo "PREV_SHA=$(git rev-parse --short HEAD~1)" >> $GITHUB_ENV
 
+      # connexion a ghcr avec le token auto de github, pas de mdp en clair
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -48,6 +58,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # prepare les noms de l'image : latest, sha-xxxxxxx, et la version si tag git
       - name: Docker Meta (Multi-tags)
         id: meta
         uses: docker/metadata-action@v5
@@ -58,6 +69,7 @@ jobs:
             type=sha,format=short
             type=semver,pattern={{version}}
 
+      # construit l'image et l'envoie sur ghcr avec les noms prepares au dessus
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
@@ -65,23 +77,29 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # version et commit pour la metrique app_build_info
           build-args: |
             APP_VERSION=${{ github.ref_name }}
             GIT_SHA=${{ github.sha }}
 
+      # on lance la version exacte du commit (pas latest)
       - name: Deploy via Docker Compose
         run: |
+          # IMAGE est lue par le docker-compose.yml
           export IMAGE="ghcr.io/${{ github.repository }}:sha-$(git rev-parse --short HEAD)"
           docker compose pull
           docker compose up -d
 
+      # on verifie que l'app marche, sinon on remet l'ancienne version
       - name: Healthcheck & Rollback
         run: |
+          # 3 essais avec 5s entre chaque, le temps que l'app demarre
           RETRIES=3
           DELAY=5
           SUCCESS=false
 
           for i in $(seq 1 $RETRIES); do
+            # -f fait echouer curl si /health renvoie une erreur (ex 503)
             if curl -f http://localhost:5000/health; then
               SUCCESS=true
               break
@@ -89,10 +107,12 @@ jobs:
             sleep $DELAY
           done
 
+          # si ca a jamais marche on revient a l'image du commit precedent
           if [ "$SUCCESS" = false ]; then
             echo "Healthcheck échoué. Rollback vers ${PREV_SHA}..."
             export IMAGE="ghcr.io/${{ github.repository }}:sha-${PREV_SHA}"
             docker compose pull
             docker compose up -d
+            # job en rouge pour prevenir que le deploiement a rate
             exit 1
           fi
