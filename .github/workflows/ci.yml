@@ -118,3 +118,4 @@ jobs:
             exit 1
           fi
           echo "Tous les jobs de la CI sont verts."
+          
